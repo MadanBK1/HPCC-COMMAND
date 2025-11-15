@@ -1,0 +1,1531 @@
+module load ANSYS/2025R1
+/cvmfs/ubuntu_2204.icer.msu.edu/2023.06/x86_64/generic/software/ANSYS/2025R1/v251/rocky/bin/Rocky &
+
+
+
+cd ParaView-5.13.2-MPI-Linux-Python3.10-x86_64
+./bin/paraview
+ cd /mnt/i/HPCC\ MSU/Impengement/impingementwithlander/impingement5m3
+*********************************** Pvserver from remote desktop ********************************
+pvserver --server-port=10556
+ssh -N -L 11111:localhost:11111 -J k0006390@gateway.hpcc.msu.edu k0006390@dev-amd20-v100
+
+mpirun --mca pml ob1 -np 50 pvserver
+module load ParaView
+export OMPI_MCA_pml=ob1
+paraview
+
+export OMP_PROC_BIND=spread
+export OMP_PLACES=threads
+******************************* BIg data Machine ************************************
+ sinfo -p data-machine
+salloc --nodelist=compute-amd24-h200 --account=beta --reservation=beta --time=24:00:00
+****************** Installation Recipe (MSU HPCC) CuPy and env*********************
+
+# 1. Go to your scratch space
+cd /mnt/scratch/k0006390
+
+# 2. Load modules
+module load Python/3.11.3-GCCcore-12.3.0
+module load CUDA/12.6
+
+# 3. Create a fresh environment
+python3 -m venv cupy_env
+
+# 4. Activate it
+source cupy_env/bin/activate
+
+# 5. Upgrade pip
+pip install --upgrade pip
+
+# 6. Install packages
+pip install cupy-cuda12x scipy matplotlib pandas
+
+# Verify CuPy Works
+python -c "import cupy; print('CuPy version:', cupy.__version__); cupy.show_config()"
+
+******************************************* paraview ********************************
+#!/bin/bash
+cd grid
+
+for i in $(seq 372000 1000 372000); do
+    echo "Processing pressure file: press.$i.grid..."
+    /usr/bin/pvbatch /home/madan/sparta/tools/paraview/grid2paraview.py input.txt output${i}_press -r pressure.$i.grid
+
+    echo "Processing velocity file: velocity.$i.grid..."
+    /usr/bin/pvbatch /home/madan/sparta/tools/paraview/grid2paraview.py input.txt output${i}_vel -r velocity.$i.grid
+done
+
+cd ..
+
+
+************************************ to kake the paraviw he defult******************************************
+echo 'export PATH=/mnt/home/k0006390/Desktop/ParaView-5.13.2-MPI-Linux-Python3.10-x86_64/bin:$PATH' >> ~/.bashrc
+source ~/.bashrc
+
+export OMPI_MCA_pml=ob1
+export OMPI_MCA_btl=self,vader,tcp
+
+********************** grid adapatation**********************************************
+
+variable step equal step
+fix 2 adapt 500 all refine coarsen particle 40 10
+run 100000 every 500 "write_grid grid/adapted_${step}.grid"
+9
+
+cd /mnt/scratch/k0006390/10circle
+
+pvpython ~/sparta/tools/paraview/surf2paraview.py circle.surf circle_out
+
+
+*********************************** gpu ********************************************
+mpirun --mca pml ob1 --mca btl ^openib -np 2 ~/sparta/src/spa_kokkos_cuda_a100 -k on g 1 -sf kk -in in.rothenozzle
+benchmarK: 100timestep: 51 sec
+200 timestep: 198 
+
+mpirun --
+100timestep: 46 sec
+200 timestep: 184 sec
+
+mpirun -np 50 ~/sparta/src/spa_kokkos_cuda -in in.test -k on g 1 -sf kk
+mpirun -np 2 ~/sparta/src/spa_kokkos_cuda -k on g 2 -sf kk -in in.test
+
+mpirun --oversubscribe -np 128 ~/sparta/src/spa_mpi -in in.rectangl
+mpirun --mca pml ob1 --mca btl tcp,self -np 4 ~/sparta/src/spa_kokkos_cuda_a100 -k on g 1 -sf kk -in in.rothenozzle
+mpirun --mca pml ob1 --mca btl tcp,self -np 4 ~/sparta/src/spa_kokkos_omp -in in.collide -k on t 2 -sf kk
+                   salloc --account=data-machine --nodes=2 --ntasks-per-node=1 --cpus-per-task=192 --mem=200GB --time=01:00:00 --nodelist=agg-063,agg-064
+
+
+
+
+************************* denpednices ******************
+sbatch --dependency=afterany:46899720 restartnew.slurm
+
+global mem/limit 50%
+read_restart flow.restart.2%50
+
+
+
+binf thred**********************
+export OMP_PROC_BIND=spread
+export OMP_PLACES=threads
+
+
+
+*************************load cuda*****************************
+module load CUDA/12.1.1
+module load CUDA/11.7.0
+module load OpenMPI/4.1.5-GCC-12.3.0
+module purge
+module load OpenMPI/4.1.5-NVHPC-23.7-CUDA-12.1.1
+module load ParaView
+mpirun --mca pml ob1 -np 50 pvserver
+pip install --user numpy scipy cupy vtk matplotlib pyparsing python-dateutil
+
+
+
+************************************************ watch GPU resources**************************************
+watch -n 1 nvidia-smi
+sinfo -N -o "%N %f %G"
+
+while compailing gpucudatis commadn is important. 
+export KOKKOS_PATH=/mnt/home/k0006390/lammps/lib/kokkos
+
+
+to check the idle GPU
+sinfo --format="%n %t %C %G" | grep -E "idle.*gpu"
+sinfo --format="%P %n %G" | grep h200
+sinfo --format="%P %n %G %t" | grep h200
+ squeue --format="%u %P %N %j %T %M %l %L" -w nch-000,nch-001,nch-002,nch-003
+squeue --nodes=nch-[000-003]
+srun --jobid=47681066 --pty /bin/bash
+ sinfo -p data-machine
+buyin_status --account data-machine
+squeue --partition=data-machine --format="%u" | sort | uniq -c
+
+salloc -N 1 -c 8 --account=beta --reservation=beta --gpus=h200:1 --time=1:00:00 --mem=300GB
+
+salloc --nodelist=compute-amd24-h200 --account=beta --reservation=beta --time=24:00:00
+
+ sinfo --Format=NodeList,Gres,GresUsed,State | grep gpu
+sinfo --format="%P %G %D %C"
+squeue -p general-long-gpu
+salloc -N 2 --gres=gpu:v100:2 --cpus-per-task=8 --mem=256GB --time=8:00:00
+
+ps -u $USER -o pid,cmd,%cpu,%mem --sort=-%cpu | head -n 10
+ ps -eo user,%cpu --no-headers | awk '{cpu[$1]+=$2} END {for (u in cpu) printf "%-10s %6.2f%%\n", u, cpu[u]}' | sort -k2 -nr
+ps -eo user,%cpu --no-headers | awk '{cpu[$1]+=$2} END {for (u in cpu) printf "%-12s %6.2f%%\n", u, cpu[u]}' | sort -k2 -nr | head
+********
+ps -u $USER -o psr,comm --no-headers | awk '
+{
+    cores[$1]=1;
+    apps[$2]++;
+}
+END {
+    printf "User: %-12s Cores Used: %d\n", ENVIRON["USER"], length(cores);
+    print "  Applications:";
+    for (a in apps)
+        printf "    %-20s : %d\n", a, apps[a];
+}'
+
+************************ Rocky one way/
+cd ~/.Rocky/Modules/
+unzip one_way_cfd_field_coupling-1.0.2-sdk-25.2.0-linux64.zip
+
+
+k0006390@dev-amd24-h200:~/.Rocky/Modules$ ls -l
+total 619184
+drwxr-x--- 3 k0006390 wmich      8192 Jun 24 01:40  24.2.0
+drwxr-x--- 3 k0006390 wmich      8192 Aug  2 00:37  25.2.0
+-rw-r----- 1 k0006390 wmich   3830564 Sep 27  2024  Ansys_Rocky_Installation_24R2.02.pdf
+drwx------ 3 k0006390 wmich      8192 Jun 24 02:12  field_force_example
+-rw-r--r-- 1 k0006390 wmich   8261576 Aug  2 00:36  one_way_cfd_field_coupling-1.0.2-sdk-25.2.0-linux64.zip
+drwxr-x--- 2 k0006390 wmich      8192 Jun 24 01:33 'Ready-to-use Modules'
+-rw-r--r-- 1 k0006390 wmich 621760557 Aug  2 00:19  ROCKY_SDK_MODULES_2025R2.0_LINX64.zip
+drwxr-x--- 6 k0006390 wmich      8192 Aug  2 00:23  SDK
+drwxr-x--- 6 k0006390 wmich      8192 Jun 24 02:08 'Source Codes'
+k0006390@dev-amd24-h200:~/.Rocky/Modules$
+
+
+****************************** compile sparta*******************************************
+
+cd ~/sparta/src
+make clean-all
+
+cd ~/sparta/lib/kokkos
+mkdir build
+cd build
+##################### biuld for hoppr 90 ########################################
+cmake .. \
+    -DCMAKE_CXX_COMPILER=mpicxx \
+    -DKokkos_ENABLE_CUDA=ON \
+    -DKokkos_ENABLE_OPENMP=ON \
+    -DKokkos_ARCH_HOPPER90=ON \
+    -DKokkos_ENABLE_CUDA_LAMBDA=ON \
+    -DKokkos_ENABLE_CUDA_CONSTEXPR=ON \
+    -DCMAKE_BUILD_TYPE=Release
+
+make -j$(nproc)
+
+************ if error arrive on grace compiling uaw this ********************************
+
+first make sure which cuda is loaded. grace and other gpu might have differnt CUDA version supported. 
+
+export CUDA_ROOT=/usr/local/cuda
+export CUDA_HOME=$CUDA_ROOT
+export CUDA_PATH=$CUDA_ROOT
+export PATH=$CUDA_ROOT/bin:$PATH
+export LD_LIBRARY_PATH=$CUDA_ROOT/lib64:$LD_LIBRARY_PATH
+
+
+if it keeping giving error. below command will helop
+
+************************ this is important command when Glib error pop up*******************************************
+
+unset LD_PRELOAD
+unset LD_PRELOAD
+unset PATH
+export PATH=/usr/local/cuda/bin:/usr/bin:/bin
+export LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/lib:/lib
+
+
+
+CXXFLAGS += -march=armv8.2-a0r nativecd ..
+for gh200
+
+#####################################################sometime no need to load to for compile but nned to run while running #############################################################################
+
+export PATH=/mnt/ufs18/nodr/research/WMUCFDLAB/openmpi-5.0.7-arm/bin:$PATH
+export LD_LIBRARY_PATH=/mnt/ufs18/nodr/research/WMUCFDLAB/openmpi-5.0.7-arm/lib:/usr/local/cuda-12.2/lib64:$LD_LIBRARY_PATH
+**********************************************************************************************************************************
+
+salloc --constraint=NOAUTO:grace --time=3:00:00 --gpus=1 --cpus-per-task=72 --mem=10G 
+salloc --constraint=NOAUTO:grace --nodes=2 --time=2:00:00 --gres=gpu:1 --cpus-per-task=4 --mem=10G
+mpirun --mca btl ^openib -np 1 ~/sparta/src/spa_kokkos_cuda_grace -k on g 1 -sf kk -in in.rothenozzlein ( fastr)
+mpirun --mca btl ^openib --mca pml ^ucx -np 3 ~/sparta/src/spa_kokkos_cuda_grace -k on g 1 -sf kk -in in.20m ( even faster)
+mpirun --mca btl ^openib --mca pml ob1 -np 1 ~/sparta/src/spa_kokkos_cuda_grace -k on g 1 -sf kk -in in.rothenozzlein
+
+mpirun --mca pml ob1 --map-by ppr:1:node -np 4 \
+  ~/sparta/src/spa_kokkos_cuda_grace -k on g 1 -sf kk -in in.20m ( build with 5.0.7) fastest. 
+
+**************************************  install cudaaware mpi***********************************
+wget https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.7.tar.gz
+tar -xzf openmpi-5.0.7.tar.gz
+cd openmpi-5.0.7
+
+./configure --prefix=$HOME/opt/openmpi-5.0.7-dsmc \
+  --with-cuda=/usr/local/cuda \
+  --with-slurm \
+  --with-pmix=internal \
+  --with-prrte=internal \
+  --enable-mpirun-prefix-by-default \
+  --enable-static \
+  --enable-shared \
+  --enable-mca-no-build=btl-uct \
+  --enable-mca-no-build=btl-openib \
+  --with-wrapper-ldflags="-Wl,-rpath,$HOME/opt/openmpi-5.0.7-dsmc/lib" \
+  CFLAGS="-O3 -march=native" \
+  CXXFLAGS="-O3 -march=native"
+
+*********** build and install *********************************************************************************************
+make -j$(nproc)
+make install
+
+************ auto build arm openMPI*****************************
+#!/bin/bash
+
+set -e
+
+# ----------- Configuration -----------
+VERSION=5.0.7
+PREFIX=$HOME/opt/openmpi-${VERSION}-arm
+CUDA_PATH=/usr/local/cuda
+NPROC=$(nproc)
+# -------------------------------------
+
+# Clean up old installation and build dirs
+rm -rf "$PREFIX"
+mkdir -p ~/build && cd ~/build
+rm -rf openmpi-${VERSION} openmpi-${VERSION}.tar.gz
+
+# Download OpenMPI
+wget https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-${VERSION}.tar.gz
+tar -xzf openmpi-${VERSION}.tar.gz
+cd openmpi-${VERSION}
+
+# Configure
+./configure --prefix="$PREFIX" \
+  --with-cuda="$CUDA_PATH" \
+  --with-slurm \
+  --with-pmix=internal \
+  --with-prrte=internal \
+  --enable-mpirun-prefix-by-default \
+  --enable-static \
+  --enable-shared \
+  --enable-mca-no-build=btl-uct \
+  --enable-mca-no-build=btl-openib \
+  --with-wrapper-ldflags="-Wl,-rpath,$PREFIX/lib" \
+  CFLAGS="-O3 -march=native" \
+  CXXFLAGS="-O3 -march=native"
+
+# Build and install
+make -j"$NPROC"
+make install
+
+# Environment setup message
+echo -e "\n✅ OpenMPI $VERSION installed at: $PREFIX"
+echo "👉 Add the following to your ~/.bashrc or shell:"
+echo "export PATH=$PREFIX/bin:\$PATH"
+echo "export LD_LIBRARY_PATH=$PREFIX/lib:$CUDA_PATH/lib64:\$LD_LIBRARY_PATH"
+
+
+
+************************ barhrc
+✅ 3. Add to .bashrc (optional)
+bash
+Copy
+Edit
+echo 'export PATH=$HOME/opt/openmpi-5.0.7-arm/bin:$PATH' >> ~/.bashrc
+echo 'export LD_LIBRARY_PATH=$HOME/opt/openmpi-5.0.7-arm/lib:/usr/local/cuda/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc
+source ~/.bashrc
+
+
+
+
+mpirun --host nch-000,nch-001,nch
+-002,nch-003 \
+  --mca pml ob1 --mca btl ^openib --map-by ppr:4:node -np 16 \
+  ~/sparta/src/spa_kokkos_cuda_grace -k on g 1 -sf kk -in in.rothenozzlein
+
+**************************************** external openmpi for grace cpu ****************************************************
+export PATH=$HOME/local/openmpi-4.1.5-gnu/bin:$PATH
+export LD_LIBRARY_PATH=$HOME/local/openmpi-4.1.5-gnu/lib:$LD_LIBRARY_PATH
+
+export PATH=/mnt/home/k0006390/opt/openmpi-5.0.7-cuda/bin:$PATH
+export LD_LIBRARY_PATH=/mnt/home/k0006390/opt/openmpi-5.0.7-cuda/lib:$LD_LIBRARY_PATH
+
+export PATH=$HOME/opt/openmpi-5.0.7-dsmc/bin:$PATH
+export LD_LIBRARY_PATH=$HOME/opt/openmpi-5.0.7-dsmc/lib:$LD_LIBRARY_PATH ( latest)
+
+
+*************************** auto detect MPI for x86 and arm ********************************* 
+if [[ $(uname -m) == "x86_64" ]]; then
+  export PATH=$HOME/opt/openmpi-5.0.7-x86/bin:$PATH
+  export LD_LIBRARY_PATH=$HOME/opt/openmpi-5.0.7-x86/lib:$LD_LIBRARY_PATH
+elif [[ $(uname -m) == "aarch64" ]]; then
+  export PATH=$HOME/opt/openmpi-5.0.7-arm/bin:$PATH
+  export LD_LIBRARY_PATH=$HOME/opt/openmpi-5.0.7-arm/lib:$LD_LIBRARY_PATH
+fi
+
+
+ompi_info | grep -i cuda
+
+************************************* request 2 node********************************************************************************
+****************************************working GRACE MUTLIPLE NODE *****************************************
+salloc --constraint=NOAUTO:grace --nodes=2 --time=2:00:00 --gres=gpu:1 --cpus-per-task=4 --mem=10G
+ mpirun --oversubscribe --mca pml ob1 --mca btl tcp,self -np 8 ~/sparta/src/spa_kokkos_cuda_grace -k on g 1 -sf kk -in in.pressurejet
+salloc --constraint=NOAUTO:grace --nodes=3 --time=2:00:00 --gres=gpu:1 --cpus-per-task=4 --mem=550G --nodelist=nch-[001-003]
+
+ALWATS USE 4 MPI TASK PER NODE FOR BETTER EFFIENCY
+
+************************************************************************************************************************
+
+salloc --constraint=NOAUTO:grace --time=1:00:00 -N 2 --gres=gpu:1 --cpus-per-task=2 --mem=10G
+salloc --constraint=NOAUTO:grace --nodes=2 --ntasks=2 --cpus-per-task=72 --gpus-per-node=1 --mem=10GB --time=3:00:00 
+
+mpirun -np 8 ./spa_kokkos_cuda_grace -k off -in in.pressurejet #### grace cpu
+
+******************************  To load module before running simualtion on GH200 nodes becuse of Arm*************************************************************
+ cd /mnt/scratch/groups/wmich/
+source /cvmfs/software.eessi.io/versions/2023.06/init/bash && module use /opt/modules/all
+export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libstdc++.so.6
+
+############################# for grace 4 cpu per task is the best ********************************************
+
+
+
+cd ..
+
+New working: mpirun --mca pml ob1 --mca btl tcp,self -np 1 ~/sparta/src/spa_kokkos_cuda -k on g 1 -sf kk -in in.rothenozzlein
+
+******************************************gpuaware: reduce comm between cpu and gpu ****************************************************************************
+mpirun --oversubscribe --mca pml ob1 --mca btl tcp,self --mca pml_ucx_cuda_support 1 -np 4 ~/sparta/src/spa_kokkos_cuda -k on g 1 -sf kk -in in.rothenozzlein
+use per gpu mpi for multi node
+
+************************************************ v100**************************************
+salloc -N 2 --gres=gpu:v100:2 --cpus-per-task=8 --mem=256GB --time=8:00:00
+ mpirun --oversubscribe --mca pml ob1 --mca btl tcp,self -np 8 ~/sparta/src/spa_kokkos_cuda_v100 -k on g 2 -sf kk -in in.5m
+
+************************************* data machibne*************************
+salloc --account=data-machine --nodes=2 --cpus-per-task=12 --mem=50GB --gres=gpu:a100:1 --time=01:00:00
+
+buyin_status --account data-machine
+****************************************** h200***************
+cd /mnt/scratch/groups/wmich/lunar3dinlet
+mpirun --oversubscribe --mca pml ob1 --mca btl tcp,self -np 4        -x CUDA_MANAGED_FORCE_DEVICE_ALLOC=1        -x CUDA_VISIBLE_DEVICES=0,1,2,3        ~/sparta/src/spa_kokkos_cuda_h200 -k on g 4 -sf kk -in in.LMDINLET
+mpirun --oversubscribe --mca pml ob1 --mca btl tcp,self -np 16 \
+       -x CUDA_MANAGED_FORCE_DEVICE_ALLOC=1 \
+       -x CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 \
+       ~/sparta/src/spa_kokkos_cuda_h200 -k on g 8 -sf kk -in in.LMDINLET
+
+mpirun -np 8 \
+  --map-by ppr:4:node \
+  -x CUDA_MANAGED_FORCE_DEVICE_ALLOC=1 \
+  ~/sparta/src/spa_kokkos_cuda_a100 \
+  -k on g 1 -sf kk -in in.LMDINLET
+
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+mpirun -np 8 \
+  --map-by ppr:8:node \
+  ~/sparta/src/spa_kokkos_cuda_l40 -k on g 8 -sf kk -in in.rothenozzlein
+
+
+************************  convert stl to surf*******************************************************************
+python stl2surf.py nozzle.stl nozzle.surf
+python ~/sparta/tools/stl2surf.py ./Apollo11.stl nozzle.surf
+python2 ~/sparta/tools/dump2xyz.py /mnt/scratch/groups/wmich/lunar3dinlet/grid/velocity.6000.grid 1 2 3 4 5 out.xyz
+
+
+
+********************* convert ppm to gif **************
+convert *.ppm animated.gif
+ for something like fps
+convert -delay 100 -loop 0 *.ppm animated.gif
+
+ffmpeg -framerate 10 -pattern_type glob -i "imagesurf.*.ppm" -vf "minterpolate='mi_mode=mci:mc_mode=aobmc:vsbmc=1',transpose=1,setpts=2.0*PTS" smooth_rotated_animated.gif
+ffmpeg -framerate 10 -pattern_type glob -i "imagesurf.*.ppm" -vf "minterpolate='mi_mode=mci:mc_mode=aobmc:vsbmc=1',transpose=1,setpts=2.0*PTS" smooth_rotated_animated.gif
+ffmpeg -framerate 10 -pattern_type glob -i "imagesurf.*.ppm" -vf "transpose=1,setpts=2.0*PTS" rotated_slow_animated.gif
+
+
+************** remove ppm **********************
+
+************************
+module load ParaView/5.11.2-foss-2023a
+module load VTK/9.3.0-foss-2023a
+module show GMP/6.2.1-GCCcore-12.3.0
+module show MPFR/4.2.0-GCCcore-12.3.0
+module show METIS/5.1.0-GCCcore-12.3.0
+
+
+machnumber: (sqrt("f_velavg[2]")^2)/(sqrt(1.4*287*"f_pressavg[2]"))
+kn: ((1.38e-23*"f_pressavg[2]")/(sqrt(2)*3.14149*(3.7e-10)^2*"f_pressavg[1]"))/0.0025
+
+ module load  OpenMPI/4.0.5-GCC-10.2.0
+module load  Boost/1.74.0-GCC-10.2.0
+
+******************trash ************************
+
+rm -rf ~/.local/share/Trash/files/*
+rm -rf ~/.local/share/Trash/info/*
+
+ls ~/.local/share/Trash/files/
+
+********************lammps 
+mpirun -np 4 ./lmp_mpi -in in.indent
+
+************************************ sparta paraview***************************************
+
+ pvpython /mnt/home/k0006390/sparta/tools/paraview/surf2paraview.py sdata.rec surf -r tmp_surf.*.1000
+
+module purge
+module load GCC/13.2.0
+module load Python/3.11.5-GCCcore-13.2.0
+module load SciPy-bundle/2023.11-gfbf-2023b
+module load CUDA/12.1.1
+
+
+
+
+
+export KOKKOS_PATH=/mnt/home/k0006390/sparta/lib/kokkos
+export KOKKOS_ABSOLUTE_PATH=$(cd $KOKKOS_PATH; pwd)
+export MPICH_CXX=$KOKKOS_ABSOLUTE_PATH/bin/nvcc_wrapper
+export OMPI_CXX=$KOKKOS_ABSOLUTE_PATH/bin/nvcc_wrapper
+
+
+************************** as shared library**************************
+Step 1: Build SPARTA as a Shared Library
+Navigate to the SPARTA source directory:
+
+bash
+Copy code
+cd ~/sparta/src
+Build SPARTA as a shared library: Run the following command to build SPARTA as a shared library using MPI:
+
+bash
+Copy code
+make mode=shlib mpi
+Verify the shared library: After the build, check that the libsparta.so file was generated in the src directory:
+
+bash
+Copy code
+ls ~/sparta/src/libsparta.so
+Step 2: Set Environment Variables
+For Python to locate the SPARTA library and the Python wrapper, set the following environment variables:
+
+Set PYTHONPATH to include the directory where sparta.py is located:
+
+bash
+Copy code
+export PYTHONPATH=/mnt/home/k0006390/sparta/python:$PYTHONPATH
+Set LD_LIBRARY_PATH to include the directory where libsparta.so is located:
+
+
+
+
+
+
+
+
+########################################## working 3d timesdapt, balance and adapt grid************************************************
+
+################################################################################
+# particles emitted from box face towards cylinder
+# Note:
+#  - The "comm/sort” option to the “global” command is used to match MPI runs.
+#  - The “twopass” option is used to match Kokkos runs.
+# The "comm/sort" and "twopass" options should not be used for production runs.
+################################################################################
+
+# Redirect log output to a custom file
+log h200.log
+
+restart 1000 restart/flow.%.1 restart/flow.%.2
+
+
+
+# Set up random seed for reproducibility
+seed                12345
+#package kokkos gpu/aware yes
+dimension           3
+
+units               si
+global              gridcut 3.0 comm/style neigh
+
+boundary            os oo oo
+global              surfmax 50000
+
+
+
+# Define the simulation box to fit the geometry
+
+create_box          -20 10.0 -50 50 -50 50
+
+# Balance the grid and set up ghost cells after creating particles
+create_grid         200 200 200 
+balance_grid        rcb part
+
+
+# Global settings
+
+global               mem/limit 2000
+global               fnum 8e15 temp 300 
+
+ 
+# Remove this line because the surfaces and particles are already restored from the restart file
+#read_surf updated_exitnew2.surf custom mynrho float 0 custom mytemp float 0 custom mystream float 0
+read_surf                LMD3DCInlet.surf
+#read_surf                landingsurface.surf
+
+region             LP block -0.01 0.1 -0.9 0.9 -0.9 0.9
+group               inlet surf region LP center 
+
+#region              cyl1 cylinder x 0.0 0.0 0.81 -0.61 -0.59 
+#group               inner surf region cyl1 center
+
+#region              cyl2 cylinder x 0.0 0.0 0.81 -0.05 0.1 
+#region              shell intersect 2 cyl2 cyl1 side in
+#group               outer_cylinder surf region shell center
+
+#group outer_cylinder surf region shell rflag center
+
+# Define species (only N2 is used)
+species		air.species H2O
+ 
+mixture             air2 H2O nrho 1e22 temp 500 vstream 2872.0 0.0 0.0 
+# Particle emission
+collide             vss all air.vss 
+surf_collide        1 diffuse 350.0 1.0
+surf_modify         all collide 1
+bound_modify        xhi collide 1
+surf_collide        2 vanish
+surf_modify         inlet collide 2
+
+
+fix                 in_in1  emit/surf air2 inlet 
+
+
+timestep            1e-7
+
+
+compute           1 grid all all nrho temp usq vsq wsq
+fix               1 ave/grid all 1 100 100 c_1[*]
+
+compute           mct lambda/grid f_1[1] f_1[2] tau 
+compute           tstep dt/grid all 0.25 0.1 &
+                  c_mct f_1[2] f_1[3] f_1[4] f_1[5]
+compute           mct3 lambda/grid f_1[1] f_1[2] tau knall
+
+fix               DT dt/reset 100 c_tstep 0.1 1
+
+fix                 4 adapt 500 all refine coarsen value c_mct3[2] 0.05 0.1 combine min thresh less more
+fix                 5 balance 500 1.1 rcb cell
+
+variable step equal step
+
+stats               1
+compute             temp temp
+stats_style         step cpu wall time dt ngrid np nattempt ncoll 
+
+run 300000 every 1000 "write_grid grid/adapted_${step}.grid"
+
+bash
+Copy code
+export LD_LIBRARY_PATH=/mnt/home/k0006390/sparta/src:$LD_LIBRARY_PATH
+To make these changes permanent, add them to your .bashrc or .bash_profile.
+
+Step 3: Install mpi4py (if needed)
+Install mpi4py for Python MPI support:
+bash
+Copy code
+pip install --user mpi4py
+Step 4: Test the Python Interface
+Run Python and import SPARTA: Open a Python shell and test the import:
+
+bash
+Copy code
+python
+>>> from sparta import sparta
+>>> spa = sparta()
+Run an input file in SPARTA: You can run SPARTA input files through Python:
+
+python
+Copy code
+spa.file("in.free")  # Replace with your SPARTA input file
+Step 5: Run SPARTA in Parallel
+Create a Python script for parallel execution (parallel_sparta.py):
+
+python
+Copy code
+from mpi4py import MPI
+from sparta import sparta
+
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
+
+spa = sparta()
+spa.file("in.free")  # Replace with your SPARTA input file
+
+print(f"Process {rank} has completed the simulation")
+spa.close()
+Submit a parallel job on the HPC: Use mpirun or your HPC’s job scheduler (like SLURM) to run SPARTA in parallel:
+
+bash
+Copy code
+mpirun -np 4 python parallel_sparta.py
+
+
+******************************* build kokkoss************
+Load the necessary environment modules (if on an HPC):
+
+Ensure CUDA, MPI, and other dependencies are loaded.
+Navigate to the Kokkos source directory:
+
+bash
+Copy code
+cd ~/lammps/lib/kokkos
+Create and enter the build directory:
+
+bash
+Copy code
+rm -rf build  # Remove existing build directory if necessary
+mkdir build && cd build
+Configure Kokkos using CMake: Replace the paths below with the actual locations on your system.
+
+bash
+Copy code
+cmake ../ \
+  -DCMAKE_CXX_COMPILER=/home/k0006390/lammps/lib/kokkos/bin/nvcc_wrapper \
+  -DKokkos_ENABLE_CUDA=ON \
+  -DKokkos_ENABLE_OPENMP=OFF \
+  -DKokkos_ENABLE_SERIAL=ON \
+  -DKokkos_ENABLE_MPI=ON \
+  -DKokkos_ARCH_VOLTA70=ON \  # Set architecture to match your GPU
+  -DCMAKE_INSTALL_PREFIX=/home/k0006390/kokkos_install
+Build Kokkos:
+
+bash
+Copy code
+make -j4
+Install Kokkos:
+
+bash
+Copy code
+make install
+Verify installation: Ensure that Kokkos is installed correctly by checking the contents of the installation directory:
+
+bash
+Copy code
+ls /home/k0006390/kokkos_install
+Once the installation is complete, you can link Kokkos to LAMMPS during the LAMMPS build process.
+
+
+
+********************** cuda_mpi_lammps
+
+1. Check and Set Correct nvcc_wrapper Path
+Ensure that the correct path to nvcc_wrapper is used, which should be:
+
+bash
+Copy code
+/mnt/home/k0006390/lammps/lib/kokkos/bin/nvcc_wrapper
+2. Update Makefile
+In your LAMMPS Makefile.kokkos_cuda_mpi, update the following lines to use the correct nvcc_wrapper path:
+
+makefile
+Copy code
+export MPICH_CXX = /mnt/home/k0006390/lammps/lib/kokkos/bin/nvcc_wrapper
+export OMPI_CXX = /mnt/home/k0006390/lammps/lib/kokkos/bin/nvcc_wrapper
+3. Update .bashrc
+Add the correct path to your .bashrc file to ensure your environment knows where nvcc_wrapper is located:
+
+bash
+Copy code
+export PATH=$PATH:/mnt/home/k0006390/lammps/lib/kokkos/bin
+export MPICH_CXX=/mnt/home/k0006390/lammps/lib/kokkos/bin/nvcc_wrapper
+export OMPI_CXX=/mnt/home/k0006390/lammps/lib/kokkos/bin/nvcc_wrapper
+After editing, run:
+
+bash
+Copy code
+source ~/.bashrc
+4. Clean and Rebuild LAMMPS
+Once the environment variables are set correctly, clean the build and attempt to compile LAMMPS again:
+
+bash
+Copy code
+make clean-machine
+cd ~/lammps/src
+make yes-kokkos
+
+make kokkos_cuda_mpi
+These steps should help resolve the issue with the OpenMPI wrapper not finding nvcc_wrapper.
+
+
+
+
+
+
+
+
+********************************** sparta bashrc *******************************************
+
+# Add MPI to PATH (if MPI_HOME is defined elsewhere)
+if [ -n "$MPI_HOME" ]; then
+    export PATH=$MPI_HOME/bin:$PATH
+    export LD_LIBRARY_PATH=$MPI_HOME/lib:$LD_LIBRARY_PATH
+fi
+
+
+export PATH=/mnt/home/k0006390/lammps/lib/kokkos/bin:$PATH
+export PYTHONPATH=$PYTHONPATH:/home/k0006390/sparta/python
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/k0006390/sparta/src
+export PYTHONPATH=/mnt/home/k0006390/.local/lib/python3.x/site-packages:$PYTHONPATH
+export PYTHONPATH=/mnt/home/k0006390/.local/lib/python3.11/site-packages:$PYTHONPATH
+export PYTHONPATH=$PYTHONPATH:/home/k0006390/lammps/python
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/k0006390/lammps/src
+# Add nvcc_wrapper to PATH
+export PATH=/mnt/home/k0006390/lammps/lib/kokkos/bin:$PATH
+
+# Set the CXX variable for nvcc_wrapper
+export CXX=/mnt/home/k0006390/lammps/lib/kokkos/bin/nvcc_wrapper
+
+# Add Kokkos installation to LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/mnt/home/k0006390/kokkos_install/lib:$LD_LIBRARY_PATH
+
+# Add CUDA to PATH and LD_LIBRARY_PATH if necessary
+export PATH=/usr/local/cuda/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+
+export CXX=/mnt/home/k0006390/lammps/lib/kokkos/bin/nvcc_wrapper
+export OMPI_CXX=/mnt/home/k0006390/lammps/lib/kokkos/bin/nvcc_wrapper
+export MPICH_CXX=/mnt/home/k0006390/lammps/lib/kokkos/bin/nvcc_wrapper
+
+
+
+export KOKKOS_DIR=/mnt/ufs18/home-081/k0006390/sparta/lib/kokkos
+export CXXFLAGS="-I$KOKKOS_DIR/include $CXXFLAGS"
+export LDFLAGS="-L$KOKKOS_DIR/lib $LDFLAGS"
+export KOKKOS_DIR=/mnt/ufs18/home-081/k0006390/sparta/lib/kokkos
+export CXXFLAGS="-I$KOKKOS_DIR/include $CXXFLAGS"
+export LDFLAGS="-L$KOKKOS_DIR/lib $LDFLAGS"
+export LD_LIBRARY_PATH=/mnt/home/k0006390/sparta/src:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/mnt/home/k0006390/sparta/src:$LD_LIBRARY_PATH
+
+
+
+************************************** sbatch for cpu****************************************************************************************************************************
+
+#!/bin/bash --login
+#SBATCH --job-name=plume_impingement      # Job name
+#SBATCH --nodes=3                        # Number of nodes
+#SBATCH --ntasks-per-node=100            # 100 tasks (cores) per node
+#SBATCH --time=12:00:00                   # Time limit (HH:MM:SS)
+#SBATCH --mem=100G                       # Total memory for the job
+#SBATCH --output=impfile.log      # Standard output log
+#SBATCH --error=impingement_%j.err       # Standard error log
+
+# Load OpenMPI and any required modules
+module load OpenMPI
+
+# Navigate to the working directory
+cd /mnt/scratch/groups/wmich/fileimpengement
+
+# Run the SPARTA simulation
+mpirun -np 300 ~/sparta/src/spa_kokkos_omp -in in.impengementfile -k on t 1 -sf kk
+
+
+
+********************************* sbatch for grace *******************************************************************************************************************************
+#!/bin/bash
+
+#SBATCH --job-name=ImpengementSim        # Job name
+#SBATCH --output=ImpengementSim_%j.out   # Standard output file (%j = job ID)
+#SBATCH --error=ImpengementSim_%j.err    # Standard error file
+#SBATCH --constraint=NOAUTO:grace        # Run on Grace nodes
+#SBATCH --time=4:00:00                   # Runtime limit of 4 hours
+#SBATCH --gpus=1                         # Request one GPU (Grace Hopper node)
+#SBATCH --cpus-per-task=12               # Utilize 12 CPUs on the node
+#SBATCH --mem=300GB                      # Request 300GB of memory
+
+# Gain access to the module system
+module load CUDA/12.1.1
+source /cvmfs/software.eessi.io/versions/2023.06/init/bash && module use /opt/modules/all
+
+# Preload the required library
+export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libstdc++.so.6
+
+# Change to the desired working directory
+cd /mnt/scratch/groups/wmich/Impengement5mshear
+
+# Run the SPARTA simulation
+mpirun --mca pml ob1 --mca btl ^openib -np 1 ~/sparta/src/spa_kokkos_cuda_grace -k on g 1 -sf kk -in in.impengement5mshear_restart
+mpirun --oversubscribe  --mca pml ob1 --mca btl tcp,self -np 4 ~/sparta/src/spa_kokkos_cuda_grace -k on g 1 -sf kk -in in.impengement10mshear_restart
+mpirun --oversubscribe --bind-to core:overload-allowed --map-by socket -np 400 ~/sparta/src/spa_kokkos_omp -in in.1245_restart -k on t 1 -sf kk
+
+************************ grace multi node working*****************************************************************************
+sq
+
+#SBATCH --job-name=10m       # Job name
+#SBATCH --output=10m_1_%j.out   # Standard output file (%j = job ID)
+#SBATCH --error=10m_1_%j.err    # Standard error file
+#SBATCH --constraint=NOAUTO:grace
+#SBATCH --nodes=2
+#SBATCH --time=04:00:00
+#SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=500G
+
+
+source /cvmfs/software.eessi.io/versions/2023.06/init/bash && module use /opt/modules/all
+
+# Preload the required library
+export LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libstdc++.so.6
+module load CUDA/12.1.1
+module load OpenMPI/4.1.5-GCC-12.3.0
+# Change to the desired working directory
+cd /mnt/scratch/groups/wmich/impingement10mshear
+
+# Run the SPARTA simulation
+mpirun --oversubscribe  --mca pml ob1 --mca btl tcp,self -np 8 ~/sparta/src/spa_kokkos_cuda_grace -k on g 1 -sf kk -in in.10m_restart
+
+
+*******************************************v100************************************************
+#!/bin/bash --login
+#SBATCH -N 3                             # Number of nodes
+#SBATCH --gres=gpu:v100:1                # Number of GPUs per node (1 V100 GPU per node)
+#SBATCH --cpus-per-task=8                # Number of CPUs per task
+#SBATCH --mem=300GB                      # Total memory per node
+#SBATCH --time=1:00:00                   # Time limit (1 hour)
+#SBATCH --job-name=10mv100    # Job name
+#SBATCH --output=10mv100_1.out   # Standard output file
+
+# Load the environment and modules
+module load CUDA/12.1.1
+module load OpenMPI/4.1.5-GCC-12.3.0
+
+# Change to the working directory
+cd /mnt/scratch/groups/wmich/impingement10mshear
+
+# Run the SPARTA simulation
+mpirun --oversubscribe  --mca pml ob1 --mca btl tcp,self -np 3 ~/sparta/src/spa_kokkos_cuda_v100 -k on g 1 -sf kk -in in.10m
+
+
+
+********************************************** globus sync only file which has been chnaged. check every 5 hr*********************************
+Label This Transfer
+Transfer Settings
+NOTE: These settings will persist during this session unless changed.
+
+sync - only transfer new or changed files
+where the
+
+### modification time is newer
+Files which were part of an incomplete transfer will not be overwritten by this option.
+
+delete files on destination that do not exist on source
+preserve source file modification times
+do NOT verify file integrity after transfer
+encrypt transfer
+Skip files on source with errors
+Fail on quota errors
+Apply filter rules to the transfer
+Notification Settings
+Disable success notification
+Disable failure notification
+Disable inactive notification
+Schedule Start
+
+mm/dd/yyyy --:-- --
+ Repeat
+
+hours
+every
+### 5
+hours
+end
+
+
+
+********************************************* let see reducing the write output change anything***********************************************
+80 refine and 10 corsen.
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Move    | 1.7467     | 4.8862     | 11.136     | 152.5 |  0.99
+Coll    | 0.29747    | 4.3646     | 19.584     | 313.2 |  0.88
+Sort    | 0.5385     | 21.251     | 97.886     | 786.8 |  4.31
+Comm    | 1.2622     | 75.548     | 338.31     |1488.5 | 15.31
+Modify  | 6.5533     | 7.4703     | 9.5227     |  29.8 |  1.51
+Output  | 16.897     | 370.74     | 469.22     | 891.5 | 75.15
+Other   |            | 9.092      |            |       |  1.84
+
+
+
+****************************** buffer****************************************************************************************************
+
+restart 100 flow.% nfile 1
+
+read_restart flow.%.1300
+
+
+write_restart       after_sampling.%.restart
+/mnt/scratch/groups/wmich/impingement20m/after_sampling.0.restart
+/mnt/scratch/groups/wmich/impingement20m/after_sampling.1.restart
+/mnt/scratch/groups/wmich/impingement20m/after_sampling.2.restart
+/mnt/scratch/groups/wmich/impingement20m/after_sampling.3.restart
+/mnt/scratch/groups/wmich/impingement20m/after_sampling.base.restart
+
+read_restart        after_sampling.%.restart
+
+  restart file = 4 Sep 2024, SPARTA = 4 Sep 2024
+  orthogonal box = (0 0 -0.05) to (20.2 84 0.05)
+ERROR on proc 0: Invalid flag in peratom section of restart file (../read_restart.cpp:1657)
+ERROR on proc 2: Invalid flag in peratom section of restart file (../read_restart.cpp:1657)
+ERROR on proc 1: Invalid flag in peratom section of restart file (../read_restart.cpp:1657)
+k0006390@dev-amd20-v100:/mnt/scratch/groups/wmich/impingement20m$
+
+
+
+
+
+
+
+
+module load ImageMagick
+module load FFmpeg
+mogrify -format jpeg *.ppm
+convert -delay 10 *.jpeg animated.gif
+
+
+export KOKKOS_PATH=$HOME/lammps/lib/kokkos
+export MPICH_CXX=/mnt/home/k0006390/lammps/lib/kokkos/bin/nvcc_wrapper
+export OMPI_CXX=/mnt/home/k0006390/lammps/lib/kokkos/bin/nvcc_wrapper
+echo $KOKKOS_PATH
+echo $MPICH_CXX
+echo $OMPI_CXX
+
+cd /mnt/home/k0006390/lammps
+mkdir build
+cd build
+cmake -C ../cmake/presets/kokkos_cuda_mpi.cmake ../cmake
+make -j4
+
+
+
+cmake ../cmake \
+  -D PKG_KOKKOS=ON \
+  -D Kokkos_ENABLE_CUDA=ON \
+  -D Kokkos_ARCH_VOLTA70=ON \
+  -D CMAKE_CXX_COMPILER=/mnt/home/k0006390/sparta/lib/kokkos/bin/nvcc_wrapper \
+  -D CMAKE_INSTALL_PREFIX=../install
+
+mpirun --mca pml ob1 --mca btl tcp,self -np 1 ~/lammps/src/lmp_kokkos_cuda_gracempi -in in.melt -k on g 2 t 8 -sf kk
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+   513    22.779912    28.154203     5.13e-05        1e-07  6251137   211601   171332   101071
+     514    22.804189    28.178479     5.14e-05        1e-07  6251137   212397   173286   101896
+     515    22.827655    28.201945     5.15e-05        1e-07  6251137   213203   175255   102648
+     516    22.852672    28.226963     5.16e-05        1e-07  6251137   214006   176993   103706
+ERROR on proc 22: Particle being sent to self proc on step 517 (../update_kokkos.cpp:705)
+k0006390@nel-001:/mnt/research/WMUCFDLAB/Impingement20m$
+
+collide_modify nearcp yes 20
+
+     139    11.207203    12.327797     1.39e-05        1e-07  1000099    28659     1359      851
+     140     11.21464    12.335234      1.4e-05        1e-07  1000099    28978     1375      822
+     141    11.221958    12.342552     1.41e-05        1e-07  1000099    29300     1387      803
+     142    11.229383    12.349977     1.42e-05        1e-07  1000099    29626     1401      812
+     143    11.237255    12.357849     1.43e-05        1e-07  1000099    29945     1420      871
+     144    11.244947    12.365542     1.44e-05        1e-07  1000099    30267     1431      855
+ERROR on proc 5: Particle being sent to self proc on step 145 (../update_kokkos.cpp:705)
+k0006390@nel-001:/mnt/research/WMUCFDLAB/Impingement20m$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+make[1]: Entering directory '/mnt/ufs18/home-081/k0006390/sparta/src/Obj_kokkos_cuda_grace'
+/bin/sh: 1: mpicxx: not found
+../../lib/kokkos/Makefile.kokkos:1034: *** Makefile.kokkos: CUDA is enabled but the compiler is neither NVCC nor Clang (got version string ) .  Stop.
+make[1]: Leaving directory '/mnt/ufs18/home-081/k0006390/sparta/src/Obj_kokkos_cuda_grace'
+
+
+
+
+
+
+################################################################# lammps######################################################
+https://www.youtube.com/watch?v=ZG7yhT_Ihcs&t=19297s           lammps tutorial 
+
+git clone https://github.com/lammps/lammps.git
+cd lammps
+mkdir build
+cd build
+
+
+cd ../build
+cmake ../cmake \
+  -C ../cmake/presets/kokkos-cuda.cmake \
+  -D BUILD_MPI=on \
+  -D LAMMPS_EXCEPTIONS=on \
+  -D BUILD_SHARED_LIBS=on \
+  -D PKG_KOKKOS=on \
+  -D PKG_GRANULAR=on \
+  -D Kokkos_ENABLE_CUDA=ON \
+  -D Kokkos_ENABLE_CUDA_LAMBDA=ON \
+  -D Kokkos_ENABLE_OPENMP=ON \
+  -D Kokkos_ENABLE_CUDA_UVM=ON \
+  -D Kokkos_ARCH_HOPPER90=ON \
+  -D Kokkos_ARCH_ZEN4=ON
+
+cmake -C ../cmake/presets/most.cmake \
+  -C ../cmake/presets/nolib.cmake \
+  -D BUILD_MPI=on \
+  -D BUILD_SHARED_LIBS=on \
+  -D LAMMPS_EXCEPTIONS=on \
+  -D PKG_KOKKOS=on \
+  -D Kokkos_ENABLE_CUDA=on \
+  -D Kokkos_ENABLE_OPENMP=on \
+  -D Kokkos_ARCH_HOPPER90=on \
+  -D CMAKE_CUDA_ARCHITECTURES=90 \
+  ../cmake
+
+make -j$(nproc)
+
+
+ChatGPT said:
+This new error confirms that there are still leftover files from the old make build system that conflict with the current CMake-based build.
+
+✅ Fix it by cleaning up the previous build system:
+Run this exact command to fully purge all remnants of the make-based build:
+
+bash
+Copy
+Edit
+make -C ../src no-all purge
+✅ Method 1: Use the -h Help Option
+Run the LAMMPS executable with -h:
+
+bash
+Copy
+Edit
+./lmp -h
+Look for this section near the bottom of the output:
+
+text
+Copy
+Edit
+Installed packages:
+  KOKKOS
+  GRANULAR
+  MOLECULE
+  KSPACE
+  ...
+This lists all the packages compiled into your LAMMPS executable.
+
+
+mpirun -np 4 ~/lammps/build/lmp -sf kk -k on g 4 -pk kokkos gpu/aware yes -in in.flow.couette
+
+
+
+******************************* error****************************************************************************************
+
+
+
+k0006390@dev-amd24-h200:/mnt/research/WMUCFDLAB/3DInletCustom$  mpirun  -np 3 ~/sparta/src/spa_kokkos_cuda_h200 -k on g 3 -sf kk -in in.LMDINLET
+SPARTA (20 Jan 2025)
+KOKKOS mode is enabled (../kokkos.cpp:40)
+  requested 3 GPU(s) per node
+  requested 1 thread(s) per MPI task
+Running on 3 MPI task(s)
+Created orthogonal box = (-20 -30 -30) to (10 30 30)
+WARNING: Could not acquire nearby ghost cells b/c grid partition is not clumped (../grid.cpp:472)
+Created 3375000 child grid cells
+  CPU time = 0.138751 secs
+  create/ghost percent = 86.7987 13.2013
+Balance grid migrated 2250000 cells
+  CPU time = 0.557575 secs
+  reassign/sort/migrate/ghost percent = 29.9688 0.888021 45.8805 23.2626
+Reading surface file ...
+  60744 triangles
+  -0.01 0 xlo xhi
+  -0.81 0.81 ylo yhi
+  -0.81 0.81 zlo zhi
+  0.00476529 min triangle edge length
+  1.54409e-05 min triangle area
+  48 0 = cells overlapping surfs, overlap cells with unmarked corner pts
+  26 tiny edges removed
+  3374952 0 48 = cells outside/inside/overlapping surfs
+  48 = surf cells with 1,2,etc splits
+  107999.979386935 107999.979388826 = cell-wise and global flow volume
+  CPU time = 12.7271 secs
+  read/check/sort/surf2grid/ghost/inout/particle percent = 0.220359 0.269402 0.322007 6.07537 93.1129 1.89834 1.84646e-05
+  surf2grid time = 0.773218 secs
+  map/comm1/comm2/comm3/comm4/split percent = 12.6702 0.382391 11.0605 0.87191 2.07135 67.4947
+0 = initial surface count in group inlet
+60744 = final surface count in group inlet
+Memory usage per proc in Mbytes:
+  particles (ave,min,max) = 0 0 0
+  grid      (ave,min,max) = 248.147 248.147 248.147
+  surf      (ave,min,max) = 7.64676 7.64676 7.64676
+  total     (ave,min,max) = 470.37 470.37 470.37
+Step CPU WALL Time Dt Ngrid Maxlevel Np Natt Ncoll
+       0            0    16.677618            0        1e-07  3375000        1        0        0        0
+       1    0.1695386    16.847185        1e-07        1e-07  3375000        1     4131        8        6
+       2   0.18601953    16.863664        2e-07        1e-07  3375000        1     8365       51       40
+       3   0.20411198    16.881757        3e-07        1e-07  3375000        1    12483      125      100
+       4   0.31304413    16.990691        4e-07        1e-07  3375000        1    16581      231      166
+       5   0.57810417    17.255751        5e-07        1e-07  3375000        1    20692      383      246
+       6   0.75421654    17.431863        6e-07        1e-07  3375000        1    24945      592      378
+       7    1.0199537      17.6976        7e-07        1e-07  3375000        1    29172      829      535
+       8      1.04758    17.725226        8e-07        1e-07  3375000        1    33342     1137      672
+       9    1.3094046    17.987051        9e-07        1e-07  3375000        1    37531     1443      853
+      10    1.6665523    18.344199        1e-06        1e-07  3375000        1    41596     1820     1037
+      11    1.8816703    18.559317      1.1e-06        1e-07  3375000        1    45705     2281     1261
+      12    1.8917082    18.569353      1.2e-06        1e-07  3375000        1    49800     2751     1491
+      13    2.1208758    18.798522      1.3e-06        1e-07  3375000        1    54021     3243     1781
+      14    2.3740175    19.051664      1.4e-06        1e-07  3375000        1    58209     3808     2092
+      15    2.6466456    19.324292      1.5e-06        1e-07  3375000        1    62300     4378     2362
+      16    2.6680495    19.345694      1.6e-06        1e-07  3375000        1    66412     5027     2786
+      17    2.9755455    19.653192      1.7e-06        1e-07  3375000        1    70517     5690     3151
+      18    3.3038032    19.981451      1.8e-06        1e-07  3375000        1    74576     6400     3476
+      19    3.3177117    19.995357      1.9e-06        1e-07  3375000        1    78692     7131     3853
+terminate called after throwing an instance of 'std::runtime_error'
+  what():  Kokkos ERROR: Cuda memory space failed to allocate 32.87 GiB (label="particle:plist").
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun noticed that process rank 0 with PID 0 on node dev-amd24-h200 exited on signal 6 (Aborted).
+
+
+
+
+************************ virtual gl working******************
+
+# 0) Make sure the runtime dir exists (good perms matter)
+mkdir -p /tmp/runtime-$USER && chmod 700 /tmp/runtime-$USER
+
+# 1) (optional) See what locales the container has
+singularity exec ~/virtualgl-turbovnc-ros2_latest.sif locale -a
+
+# 2) Run Rocky with a safe locale + your previous env
+singularity exec --nv \
+  --bind /opt/software-current/2023.06/x86_64/generic/software/ANSYS/2025R2/v252/rocky:/ansys/rocky \
+  --bind /opt/software-current/2023.06/x86_64/generic/software/ANSYS/2025R2/v252/licensingclient:/ansys/licensingclient \
+  --bind /usr/lib/firefox:/usr/lib/firefox \
+  --bind /usr/lib/x86_64-linux-gnu/nss:/usr/lib/x86_64-linux-gnu/nss \
+  --bind /etc/fonts:/etc/fonts \
+  --bind /usr/share/fonts:/usr/share/fonts \
+  --bind $HOME:$HOME \
+  --env ANSYSLMD_LICENSE_FILE=1055@lm-03.i \
+  --env LM_LICENSE_FILE=1055@lm-03.i \
+  --env PATH=/ansys/licensingclient/linx64:$PATH \
+  --env LD_LIBRARY_PATH=/usr/lib/firefox:/usr/lib/x86_64-linux-gnu/nss:$LD_LIBRARY_PATH \
+  --env QT_QPA_PLATFORM=xcb,QTWEBENGINE_DISABLE_SANDBOX=1 \
+  --env DISPLAY=:1,XDG_RUNTIME_DIR=/tmp/runtime-$USER \
+  --env FONTCONFIG_PATH=/etc/fonts,FONTCONFIG_FILE=/etc/fonts/fonts.conf \
+  --env LANG=C.UTF-8,LC_ALL=C.UTF-8,LC_CTYPE=C.UTF-8 \
+  ~/virtualgl-turbovnc-ros2_latest.sif \
+  /ansys/rocky/bin/Rocky --ncpus 8 --use-gpu 0
+
+
+
+*****************
+# 0) Make sure we’re in the VNC desktop
+export DISPLAY=:1
+export XDG_RUNTIME_DIR=/tmp/runtime-$USER
+mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
+
+IMG="$HOME/virtualgl-turbovnc-ros2_latest.sif"
+SING="singularity exec --nv \
+  --bind /opt/software-current/2023.06/x86_64/generic/software/ANSYS/2025R2/v252/rocky:/ansys/rocky \
+  --bind /opt/software-current/2023.06/x86_64/generic/software/ANSYS/2025R2/v252/licensingclient:/ansys/licensingclient \
+  --bind /usr/lib/firefox:/usr/lib/firefox \
+  --bind /usr/lib/x86_64-linux-gnu/nss:/usr/lib/x86_64-linux-gnu/nss \
+  --bind /etc/fonts:/etc/fonts --bind /usr/share/fonts:/usr/share/fonts \
+  --bind /dev/dri:/dev/dri \
+  --bind $HOME:$HOME \
+  $IMG"
+
+# 1) (Re)start the VGL client cleanly
+$SING pkill -f vglclient 2>/dev/null || true
+$SING vglclient -detach
+pgrep -fa vglclient
+
+# Optional sanity check: should show LISTEN on :4242
+$SING bash -lc "ss -ltn sport = :4242 || netstat -ltn | grep 4242"
+
+# 2) Launch Rocky via vglrun, **passing DISPLAY + VGL_CLIENT**
+$SING env \
+  DISPLAY=:1 VGL_CLIENT=127.0.0.1:4242 \
+  ANSYSLMD_LICENSE_FILE=1055@lm-03.i LM_LICENSE_FILE=1055@lm-03.i \
+  PATH=/ansys/licensingclient/linx64:$PATH \
+  LD_LIBRARY_PATH=/usr/lib/firefox:/usr/lib/x86_64-linux-gnu/nss \
+  QT_QPA_PLATFORM=xcb QTWEBENGINE_DISABLE_SANDBOX=1 \
+  LANG=C.UTF-8 LC_ALL=C.UTF-8 \
+  FONTCONFIG_PATH=/etc/fonts FONTCONFIG_FILE=/etc/fonts/fonts.conf \
+  vglrun -d egl -c jpeg -q 90 -np 4 /ansys/rocky/bin/Rocky --ncpus 8
+
+******
+# 0) You are in the VNC session
+export DISPLAY=:1
+export XDG_RUNTIME_DIR=/tmp/runtime-$USER
+mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
+
+IMG="$HOME/virtualgl-turbovnc-ros2_latest.sif"
+SING="singularity exec --nv \
+  --bind /opt/software-current/2023.06/x86_64/generic/software/ANSYS/2025R2/v252/rocky:/ansys/rocky \
+  --bind /opt/software-current/2023.06/x86_64/generic/software/ANSYS/2025R2/v252/licensingclient:/ansys/licensingclient \
+  --bind /usr/lib/firefox:/usr/lib/firefox \
+  --bind /usr/lib/x86_64-linux-gnu/nss:/usr/lib/x86_64-linux-gnu/nss \
+  --bind /etc/fonts:/etc/fonts --bind /usr/share/fonts:/usr/share/fonts \
+  --bind /dev/dri:/dev/dri \
+  --bind $HOME:$HOME \
+  $IMG"
+
+# 1) Restart VGL client fresh (so the port is definitely open)
+$SING pkill -f vglclient 2>/dev/null || true
+$SING vglclient -detach
+$SING bash -lc "ss -ltn sport = :4242 || netstat -ltn | grep 4242"
+
+# 2) Launch Rocky through VirtualGL -> DO NOT press Ctrl-C
+$SING env \
+  DISPLAY=:1 VGL_CLIENT=127.0.0.1:4242 \
+  ANSYSLMD_LICENSE_FILE=1055@lm-03.i LM_LICENSE_FILE=1055@lm-03.i \
+  PATH=/ansys/licensingclient/linx64:$PATH \
+  LD_LIBRARY_PATH=/usr/lib/firefox:/usr/lib/x86_64-linux-gnu/nss \
+  QT_QPA_PLATFORM=xcb QTWEBENGINE_DISABLE_SANDBOX=1 \
+  LANG=C.UTF-8 LC_ALL=C.UTF-8 \
+  FONTCONFIG_PATH=/etc/fonts FONTCONFIG_FILE=/etc/fonts/fonts.conf \
+  vglrun -d egl -c jpeg -q 90 -np 4 /ansys/rocky/bin/Rocky --ncpus 100
+
+
+
+
+vncserver :1 -geometry 1920x1080 -depth 24
+vncserver -list
+vncserver -kill :1
+rm -f ~/.vnc/*.pid ~/.vnc/*.log
+
+
+
+
+
+
+
+******************new vnc server ******************
+
+A. hard reset (kill Rocky, vglclient, VNC)
+# stop background/stopped jobs from earlier
+jobs -l
+kill %1 %2 %3 2>/dev/null || true
+
+# kill rocky + vglclient + Xvnc
+pkill -9 -f Rocky            2>/dev/null || true
+pkill -9 -f RockySolver      2>/dev/null || true
+pkill -9 -f '^/usr/bin/vglclient' 2>/dev/null || true
+singularity exec --nv "$IMG" /opt/TurboVNC/bin/vncserver -kill :2 2>/dev/null || true
+
+B. set vars (adjust only if paths differ)
+export IMG=virtualgl-turbovnc-ros2_latest.sif
+export ROCKY_BIN="/cvmfs/ubuntu_2204.icer.msu.edu/2023.06/x86_64/generic/software/ANSYS/2025R2/v252/rocky/bin/Rocky"
+export ROCKY_LIB="/cvmfs/ubuntu_2204.icer.msu.edu/2023.06/x86_64/generic/software/ANSYS/2025R2/v252/rocky
+
+
+
+start a fresh TurboVNC :2
+singularity exec --nv "$IMG" /opt/TurboVNC/bin/vncserver :2 -localhost -geometry 1600x900 -depth 24
+singularity exec --nv "$IMG" /opt/TurboVNC/bin/vncserver -list   # should show :2
+
+
+singularity exec "$IMG" /usr/bin/vglclient -display :2 -port 4242 >/dev/null 2>&1 &
+export VGL_CLIENT=127.0.0.1:4242
+ps -u "$USER" | grep vglclient   # should list one vglclient
+
+F. launch Rocky GUI via the container’s VirtualGL (GPU)
+singularity exec --nv \
+  -B /cvmfs:/cvmfs \
+  -B /usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu \
+  -B /lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu \
+  -B /etc/fonts:/etc/fonts \
+  -B /usr/share/fontconfig:/usr/share/fontconfig \
+  -B /usr/share/fonts:/usr/share/fonts \
+  "$IMG" /bin/bash --noprofile --norc -lc '
+    ulimit -n 8192
+    export DISPLAY=:2 LANG=C.UTF-8
+    export QT_QPA_PLATFORM=xcb QTWEBENGINE_DISABLE_SANDBOX=1
+    export XDG_RUNTIME_DIR=/tmp/runtime-$USER; mkdir -p "$XDG_RUNTIME_DIR"; chmod 700 "$XDG_RUNTIME_DIR"
+
+    # VirtualGL + vglclient
+    export VGL_DISPLAY=egl
+    export VGL_CLIENT=127.0.0.1:4242
+    export VGL_COMPRESS=1 VGL_QUAL=80 VGL_SUBSAMP=1
+
+    # Rocky + NSS/NSPR libs
+    export LD_LIBRARY_PATH="'"$ROCKY_LIB"':/usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu/nss:/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
+
+    which vglrun || ls -l /usr/bin/vglrun
+    /usr/bin/vglrun "'"$ROCKY_BIN"'"
+
+
+
+*****************new new updated working  ********************************************
+# 1) Kill any stragglers
+pkill -9 -f Rocky 2>/dev/null || true
+pkill -9 -f '^/usr/bin/vglclient' 2>/dev/null || true
+
+# 2) Make sure VNC :2 is running and allow local X access
+singularity exec --nv "$IMG" /opt/TurboVNC/bin/vncserver -kill :2 2>/dev/null || true
+singularity exec --nv "$IMG" /opt/TurboVNC/bin/vncserver :2 -localhost -geometry 1600x900 -depth 24
+export DISPLAY=:2
+xhost +SI:localuser:$USER  # avoids Xauthority bind hassles
+
+# 3) Start vglclient in the container (port 4242)
+singularity exec "$IMG" /usr/bin/vglclient -display :2 -port 4242 >/dev/null 2>&1 &
+export VGL_CLIENT=127.0.0.1:4242
+
+# 4) Relaunch Rocky with stability flags (WebEngine + fonts + higher ulimit)
+singularity exec --nv \
+  -B /cvmfs:/cvmfs \
+  -B /usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu \
+  -B /lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu \
+  -B /etc/fonts:/etc/fonts \
+  -B /usr/share/fontconfig:/usr/share/fontconfig \
+  -B /usr/share/fonts:/usr/share/fonts \
+  "$IMG" /bin/bash --noprofile --norc -lc '
+    # 1) raise file-descriptor limit (fixes “inotify_init Too many open files”)
+    ulimit -n 16384
+
+    # 2) core env
+    export DISPLAY=:2 LANG=C.UTF-8
+    export QT_QPA_PLATFORM=xcb
+    export QTWEBENGINE_DISABLE_SANDBOX=1
+    export QTWEBENGINE_CHROMIUM_FLAGS="--single-process --disable-gpu-watchdog --disable-gpu-compositing --ignore-gpu-blocklist"
+    export XDG_RUNTIME_DIR=/tmp/runtime-$USER; mkdir -p "$XDG_RUNTIME_DIR"; chmod 700 "$XDG_RUNTIME_DIR"
+    export FONTCONFIG_FILE=/etc/fonts/fonts.conf
+
+    # 3) VirtualGL (GPU) via vglclient
+    export VGL_DISPLAY=egl
+    export VGL_CLIENT=127.0.0.1:4242
+    export VGL_COMPRESS=1 VGL_QUAL=80 VGL_SUBSAMP=1
+
+    # 4) Rocky + NSS/NSPR
+    export LD_LIBRARY_PATH="'"$ROCKY_LIB"':/usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu/nss:/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
+
+    /usr/bin/vglrun "'"$ROCKY_BIN"'"
+
+
+
+
+************************ all command ****************
+Set your image name once:
+
+export IMG=virtualgl-turbovnc-ros2_latest.sif
+
+Kill a VNC desktop (e.g., :2)
+singularity exec --nv "$IMG" /opt/TurboVNC/bin/vncserver -kill :2
+
+List all TurboVNC sessions
+singularity exec --nv "$IMG" /opt/TurboVNC/bin/vncserver -list
+
+Start a new desktop (on :2, local-only, 1600×900, 24-bit)
+singularity exec --nv "$IMG" /opt/TurboVNC/bin/vncserver :2 -localhost -geometry 1600x900 -depth 24
+
+(Optional) Set/Change your VNC password
+singularity exec "$IMG" /opt/TurboVNC/bin/vncpasswd
+
+(Optional) After starting, allow local X clients & set DISPLAY
+export DISPLAY=:2
+xhost +SI:localuser:$USER
+
+All-in-one helper (copy/paste)
+# Kill, list, start in one go (uses :2)
+export IMG=virtualgl-turbovnc-ros2_latest.sif
+singularity exec --nv "$IMG" /opt/TurboVNC/bin/vncserver -kill :2 2>/dev/null || true
+singularity exec --nv "$IMG" /opt/TurboVNC/bin/vncserver :2 -localhost -geometry 1600x900 -depth 24
+singularity exec --nv "$IMG" /opt/TurboVNC/bin/vncserver -list
+export DISPLAY=:2
+xhost +SI:localuser:$USER
+  '
+
+*********paraview vlgrun*************
+#!/bin/bash
+set -euo pipefail
+export DISPLAY=${DISPLAY:-:2}
+
+module use /cvmfs/ubuntu_2204.icer.msu.edu/2023.06/x86_64/generic/modules/all
+module load ParaView/5.11.2-foss-2023a Qt5/5.15.10-GCCcore-12.3.0
+
+PV_BIN="$(which paraview)"
+
+SINGULARITYENV_LD_LIBRARY_PATH="$LD_LIBRARY_PATH" \
+SINGULARITYENV_QT_PLUGIN_PATH="${QT_PLUGIN_PATH:-}" \
+SINGULARITYENV_PATH="$PATH" \
+VGL_DISPLAY=egl DISPLAY=$DISPLAY \
+singularity exec --nv \
+  -B /opt/software-current:/opt/software-current \
+  -B /cvmfs:/cvmfs \
+  -B /usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu \
+  -B /lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu \
+  -B /lib64:/lib64 \
+  virtualgl-turbovnc-ros2_latest.sif \
+  vglrun "$PV_BIN"
+
+
+************************
+ 
+ssh -N -o ServerAliveInterval=60 -o ServerAliveCountMax=3 `
+  -J k0006390@gateway.hpcc.msu.edu,k0006390@dev-amd20-v100 `
+  -L 5092:localhost:5902 k0006390@nfh-001
+
+
+
+ ./vncserver -list
+
+~/opt/TurboVNC/bin$  ./vncserver -kill :1
+
+ps -ef | grep Xvnc
+
+pkill -9 -f Rocky 2>/dev/null || true
+pkill -9 -f '^/usr/bin/vglclient' 2>/dev/null || true
+
+********* c
+# start clean
+module purge
+unset PYTHONPATH
+export PYTHONNOUSERSITE=1
+
+# load CUDA 12.x on this node (pick the one that exists)
+
+module load CUDA         # or CUDA/12.3, etc.
+
+# make sure the libs are on the path
+export CUDA_HOME=${CUDA_HOME:-/usr/local/cuda}
+export LD_LIBRARY_PATH="$CUDA_HOME/lib64:$LD_LIBRARY_PATH"
+
+# verify cuRAND is present
+ls -l "$CUDA_HOME/lib64/libcurand.so"*
+# should show ...libcurand.so -> libcurand.so.12 -> libcurand.so.12.x.x
+
+# run from your venv
+source ~/cupy_env/bin/activate
+python -c "import cupy as cp; print('devices:', cp.cuda.runtime.getDeviceCount()); import ctypes; ctypes.CDLL('libcurand.so'); print('cuRAND OK')"
+python ~/Desktop/2Daxisto3D/2Dto3D/2Dto3D_range.py
+
