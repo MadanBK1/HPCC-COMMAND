@@ -43,3 +43,6 @@ singularity exec --nv \
   export DISPLAY=:1
 ./paraview_vnc.sh
 
+
+#  run above code and run pvserver and connect pvserver to vnc session.
+#it will be capable of cglrun and pvserver parallel capability
