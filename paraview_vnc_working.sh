@@ -35,3 +35,11 @@ singularity exec --nv \
   -B /lib64:/lib64 \
   virtualgl-turbovnc-ros2_latest.sif \
   vglrun "$PV_BIN"
+
+
+
+
+  ************** ise this*************** 
+  export DISPLAY=:1
+./paraview_vnc.sh
+
