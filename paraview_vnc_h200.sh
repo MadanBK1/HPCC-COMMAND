@@ -146,3 +146,89 @@ singularity exec --nv \
   virtualgl-turbovnc-ros2_latest.sif \
   vglrun "$PV_BIN"
 
+
+
+
+
+
+*********** this is final working (****************
+#!/bin/bash
+set -euo pipefail
+
+############################################
+# DISPLAY + VGL
+############################################
+export DISPLAY=:2
+export VGL_DISPLAY=egl
+
+############################################
+# Load host modules
+############################################
+module use /cvmfs/ubuntu_2204.icer.msu.edu/2023.06/x86_64/generic/modules/all
+module load ParaView/5.11.2-foss-2023a Qt5/5.15.10-GCCcore-12.3.0 Python/3.11.3-GCCcore-12.3.0
+
+PV_BIN="$(which paraview)"
+echo "[INFO] Host ParaView = $PV_BIN"
+
+############################################
+# Correct host library paths (verified)
+############################################
+export HOST_QT_PLUGINS="/opt/software-current/2023.06/x86_64/generic/software/Qt5/5.15.10-GCCcore-12.3.0/plugins"
+export HOST_QT_LIBS="/opt/software-current/2023.06/x86_64/generic/software/Qt5/5.15.10-GCCcore-12.3.0/lib"
+export HOST_ICU_LIBS="/opt/software-current/2023.06/x86_64/generic/software/ICU/73.2-GCCcore-12.3.0/lib"
+export HOST_PY_LIBS="/opt/software-current/2023.06/x86_64/generic/software/Python/3.11.3-GCCcore-12.3.0/lib"
+
+############################################
+# Validation
+############################################
+if [[ -z "$HOST_QT_PLUGINS" || -z "$HOST_QT_LIBS" || -z "$HOST_ICU_LIBS" || -z "$HOST_PY_LIBS" ]]; then
+    echo "[ERROR] One or more host library variables are EMPTY."
+    echo "HOST_QT_PLUGINS = '$HOST_QT_PLUGINS'"
+    echo "HOST_QT_LIBS     = '$HOST_QT_LIBS'"
+    echo "HOST_ICU_LIBS    = '$HOST_ICU_LIBS'"
+    echo "HOST_PY_LIBS     = '$HOST_PY_LIBS'"
+    exit 1
+fi
+
+############################################
+# STEP 1 — Kill stale VNC session
+############################################
+echo "[INFO] Checking for stale VNC :2 ..."
+
+singularity exec --nv virtualgl-turbovnc-ros2_latest.sif /opt/TurboVNC/bin/vncserver -kill :2 2>/dev/null || true
+
+echo "[INFO] Removing stale VNC files..."
+rm -f $HOME/.vnc/*:2.log  \
+      $HOME/.vnc/*:2.pid  \
+      $HOME/.vnc/.X2-lock \
+      $HOME/.vnc/Xauthority
+
+############################################
+# STEP 2 — Start new VNC (1600×900)
+############################################
+echo "[INFO] Starting TurboVNC (1600x900)..."
+
+singularity exec --nv \
+  -B $HOME/.vnc:$HOME/.vnc \
+  virtualgl-turbovnc-ros2_latest.sif \
+  /opt/TurboVNC/bin/vncserver :2 -geometry 1600x900 -depth 24
+
+echo "[INFO] VNC READY on DISPLAY :2"
+
+############################################
+# STEP 3 — Launch ParaView with VirtualGL
+############################################
+echo "[INFO] Launching ParaView..."
+
+singularity exec --nv \
+  --env DISPLAY=:2 \
+  --env QT_PLUGIN_PATH=/qtplugins \
+  --env QT_QPA_PLATFORM_PLUGIN_PATH=/qtplugins/platforms \
+  --env LD_LIBRARY_PATH=/qtlibs:/iculibs:/pylibs:$LD_LIBRARY_PATH \
+  -B ${HOST_QT_PLUGINS}:/qtplugins \
+  -B ${HOST_QT_LIBS}:/qtlibs \
+  -B ${HOST_ICU_LIBS}:/iculibs \
+  -B ${HOST_PY_LIBS}:/pylibs \
+  -B /opt/software-current:/opt/software-current \
+  virtualgl-turbovnc-ros2_latest.sif \
+  vglrun "$PV_BIN"
