@@ -91,3 +91,58 @@ singularity exec --nv \
     -B /cvmfs:/cvmfs \
     virtualgl-turbovnc-ros2_latest.sif \
     vglrun "$PV_BIN"
+
+
+
+************** also working and gpu utilization*********** 
+#!/bin/bash
+set -euo pipefail
+
+export DISPLAY=:2
+export VGL_DISPLAY=egl
+
+############################################
+# Load modules on host
+############################################
+module use /cvmfs/ubuntu_2204.icer.msu.edu/2023.06/x86_64/generic/modules/all
+module load ParaView/5.11.2-foss-2023a Qt5/5.15.10-GCCcore-12.3.0
+
+PV_BIN="$(which paraview)"
+echo "[INFO] Host ParaView = $PV_BIN"
+
+############################################
+# Host library paths
+############################################
+export HOST_QT_PLUGINS="/opt/software-current/2023.06/x86_64/generic/software/Qt5/5.15.10-GCCcore-12.3.0/plugins"
+export HOST_QT_LIBS="/opt/software-current/2023.06/x86_64/generic/software/Qt5/5.15.10-GCCcore-12.3.0/lib"
+export HOST_PY_LIBS="/opt/software-current/2023.06/x86_64/generic/software/Python/3.11.3-GCCcore-12.3.0/lib"
+export HOST_ICU_LIBS="/opt/software-current/2023.06/x86_64/generic/software/ICU/73.2-GCCcore-12.3.0/lib"
+
+############################################
+# Start TurboVNC
+############################################
+singularity exec --nv \
+  -B $HOME/.vnc:$HOME/.vnc \
+  virtualgl-turbovnc-ros2_latest.sif \
+  /opt/TurboVNC/bin/vncserver :2
+
+echo "[INFO] VNC READY"
+
+############################################
+# Start ParaView with correct library paths
+############################################
+echo "[INFO] Launching ParaView..."
+
+singularity exec --nv \
+  --env DISPLAY=:2 \
+  --env QT_PLUGIN_PATH=/qtplugins \
+  --env QT_QPA_PLATFORM_PLUGIN_PATH=/qtplugins/platforms \
+  --env LD_LIBRARY_PATH=/qtlibs:/iculibs:/pylibs:$LD_LIBRARY_PATH \
+  -B ${HOST_QT_PLUGINS}:/qtplugins \
+  -B ${HOST_QT_LIBS}:/qtlibs \
+  -B ${HOST_ICU_LIBS}:/iculibs \
+  -B ${HOST_PY_LIBS}:/pylibs \
+  -B /opt/software-current:/opt/software-current \
+  virtualgl-turbovnc-ros2_latest.sif \
+  vglrun "$PV_BIN"
+
